@@ -336,9 +336,21 @@ const canRaise = p => !p.acted && p.chips > (G.currentBet - p.bet);
 const rnd = x => Math.max(SET.sb, Math.round(x / SET.sb) * SET.sb);
 
 const LOGS = [];
-function appendLog(e){ const d = document.createElement('div'); d.className = e.cls || ''; d.innerHTML = fmt(e.text); const L = $('log'); L.appendChild(d); L.scrollTop = L.scrollHeight; }
+const block = (title, lines) => title + '\n' + (Array.isArray(lines) ? lines : String(lines).split('\n')).flatMap(l => l.split(/(?<=[.!])\s+(?=\S)/)).map(l => '   · ' + l).join('\n');
+const nearBottom = L => L.scrollHeight - L.scrollTop - L.clientHeight < 40;
+function appendLog(e, force){
+  const L = $('log'), visible = L.clientHeight > 0, stick = force || (visible && nearBottom(L));
+  const d = document.createElement('div'); d.className = e.cls || ''; d.innerHTML = fmt(e.text); L.appendChild(d);
+  if (stick) L.scrollTop = L.scrollHeight;   // 맨 아래를 보고 있을 때만 따라 내려감
+}
 function log(text, cls){ const e = {text, cls}; LOGS.push(e); appendLog(e); }
-function rerenderAll(){ $('log').innerHTML = ''; LOGS.forEach(appendLog); if (G) render(); }
+function rerenderAll(){
+  const L = $('log'), bottom = nearBottom(L), top = L.scrollTop, wy = window.scrollY;
+  L.innerHTML = ''; LOGS.forEach(e => appendLog(e, false));
+  L.scrollTop = bottom ? L.scrollHeight : top;
+  if (G) render();
+  window.scrollTo(0, wy);
+}
 
 function newGame(){
   const n = Math.min(7, Math.max(3, +$('n').value));
@@ -434,14 +446,14 @@ function endStreet(){
   else if (G.street === 'flop'){ G.board.push(G.deck.pop()); G.street = 'turn'; }
   else { G.board.push(G.deck.pop()); G.street = 'river'; }
   log(`── ${STREET_KO[G.street]}: ${cardsStr(G.board)}  (팟 ${potTotal()}, 남은 인원 ${live().length}명) ──`, 'street');
-  log('보드 해설: ' + texture(G.board), 'why');
+  log(block('보드 해설', texture(G.board)), 'why');
   const me = P()[0];
   if (!me.out && !me.folded){
     const A = getAnalysis();
-    let s = `나: 현재 ${describe(A.cur)}`;
-    if (A.ba) s += ` · 이 보드의 넛: ${describe(A.ba.nut)}` + (A.ba.iAmNut ? ' ← 지금 내가 넛!' : ` · 나를 이기는 상대 조합 ${pct(A.ba.better / A.ba.total)}`);
-    s += ` · 승률 ${pct(A.eq)} (상대 ${A.opp}명)`;
-    log(s, 'me');
+    const s = [`현재 족보: ${describe(A.cur)}`];
+    if (A.ba){ s.push(`이 보드의 넛: ${describe(Math.max(A.ba.nut, A.ba.my))}` + (A.ba.iAmNut ? '  ← 지금 내가 넛!' : '')); if (!A.ba.iAmNut) s.push(`나를 이기는 상대 조합: ${pct(A.ba.better / A.ba.total)}`); }
+    s.push(`승률: ${pct(A.eq)} (상대 ${A.opp}명)`);
+    log(block('나의 현재 상태', s), 'me');
   }
   const canAct = P().filter(p => !p.out && !p.folded && !p.allIn);
   if (canAct.length <= 1) log('더 이상 베팅할 수 있는 사람이 없어 남은 카드를 자동으로 공개합니다.', 'sys');
@@ -466,14 +478,14 @@ function texture(b){
   const hi = Math.max(...b.map(c => c >> 2));
   if (!s.length) s.push('드라이(건조한) 보드: 드로우가 적어 먼저 맞은 사람이 유리, 블러프가 잘 통하는 편');
   s.push(`최고 카드 ${rn(hi)}` + (hi >= 12 ? ' (하이카드 보드: 프리플랍 레이저가 맞았을 가능성 큼)' : ' (로우 보드: 콜러의 작은 페어·커넥터가 맞기 쉬움)'));
-  return s.join(' / ');
+  return s;
 }
 
 /* ================= 판단 로직 (봇 & 코치 공용) ================= */
 function decide(p, st, det, eqGiven){
   const toCall = G.currentBet - p.bet, pot = potTotal(), po = toCall > 0 ? toCall / (pot + toCall) : 0;
   const pc = posClass(p.pos), why = [], BB = SET.bb;
-  const R = (action, to, extra) => ({action, to, detail: why.concat(extra ? [extra] : []).join(' / ')});
+  const R = (action, to, extra) => ({action, to, detail: why.concat(extra ? [extra] : []).join('\n')});
   if (G.street === 'preflop'){
     const chen = chenScore(p.hole), adj = {early:2, middle:1, late:0, blind:.5}[pc];
     const playTh = st.play + adj, raiseTh = st.raise + adj * .5, r = G.streetRaises;
@@ -515,7 +527,7 @@ function decide(p, st, det, eqGiven){
   if (rel >= st.raiseRel && eqA > po) return R('raise', G.currentBet + .75 * (pot + toCall), `매우 강함(기준 ${st.raiseRel}배 이상) → 레이즈로 팟을 키움`);
   if (eqA >= po + st.margin) return R('call', 0, `승률 ${pct(eqA)} ≥ 필요 승률 ${pct(po)}${st.margin ? (st.margin > 0 ? ' + 여유분' : ' (성향상 느슨하게 콜)') : ''} → 콜이 장기적으로 이득`);
   if (o && G.board.length === 3 && outs >= 8 && toCall <= .6 * pot && eqA >= po - .07) return R('call', 0, '당장 승률은 살짝 모자라지만 드로우가 맞으면 더 받아낼 수 있음(임플라이드 오즈) → 콜');
-  return R('fold', 0, `승률 ${pct(eqA)} < 필요 승률 ${pct(po)} → 폴드가 장기적으로 이득`);
+  return R('fold', 0, eqA < po ? `승률 ${pct(eqA)} < 필요 승률 ${pct(po)} → 폴드가 장기적으로 이득` : `승률 ${pct(eqA)}가 필요 승률 ${pct(po)}보다 높긴 하지만, 성향상 여유분 ${pct(st.margin)}을 더 요구 → 확신이 부족해 폴드`);
 }
 function legalize(p, d){
   const toCall = G.currentBet - p.bet, maxTo = p.bet + p.chips;
@@ -536,31 +548,41 @@ const actLabel = (p, d) => d.action === 'fold' ? '폴드' : d.action === 'check'
 
 /* ================= 봇 행동 & 공개 해설 ================= */
 function publicExplain(p, action, potBefore, toCall, to){
-  const st = STYLES[p.style], tag = `[${p.name}: ${st.name}, ${p.pos}]`;
+  const st = STYLES[p.style];
   const need = (c, potAfter) => pct(c / (potAfter + c));
-  let s;
+  const L = [];
   if (action === 'fold'){
-    s = toCall > 0 ? `콜 ${toCall}을 하려면 승률 ${need(toCall, potBefore)} 이상이 필요했는데, 그만큼 강하지 않다고 보고 손실을 끊었습니다.` : '폴드.';
-    if (G.street === 'preflop') s += ` 프리플랍 폴드는 대부분 '시작 핸드가 이 포지션 기준에 못 미침'이라는 뜻.`;
+    if (toCall > 0){
+      L.push(`콜 ${toCall}을 하려면 승률 ${need(toCall, potBefore)} 이상이 필요했음`);
+      L.push('그만큼 강하지 않다고 보고 손실을 끊음');
+    } else L.push('폴드');
+    if (G.street === 'preflop') L.push(`프리플랍 폴드 = 대부분 '시작 핸드가 이 포지션 기준에 못 미침'이라는 뜻`);
   } else if (action === 'check'){
-    s = G.street === 'preflop' ? 'BB 옵션으로 체크 — 추가 비용 없이 플랍을 봅니다.' : '베팅할 만큼 강하지 않거나, 강한 패를 숨기는(슬로플레이) 선택. 공짜로 다음 카드를 보려는 의도일 수 있어요.';
+    if (G.street === 'preflop') L.push('BB 옵션으로 체크 → 추가 비용 없이 플랍을 봄');
+    else { L.push('베팅할 만큼 강하지 않거나, 강한 패를 숨기는(슬로플레이) 선택'); L.push('공짜로 다음 카드를 보려는 의도일 수 있음'); }
   } else if (action === 'call'){
-    s = `${toCall}을 넣어 팟 ${potBefore + toCall}를 노림 → 필요 승률 ${need(toCall, potBefore)}. 레이즈할 정도는 아니지만 따라갈 가치는 있다는 판단(또는 드로우를 쫓는 중).`;
-    if (G.street === 'preflop' && G.streetRaises === 0) s = `림프(BB만큼 콜): 싸게 플랍을 보려는 플레이. 강한 핸드라면 보통 레이즈하므로 중간 정도 핸드일 가능성이 큽니다.`;
+    if (G.street === 'preflop' && G.streetRaises === 0){
+      L.push('림프(BB만큼 콜): 싸게 플랍을 보려는 플레이');
+      L.push('강한 핸드면 보통 레이즈하므로, 중간 정도 핸드일 가능성이 큼');
+    } else {
+      L.push(`${toCall}을 넣어 팟 ${potBefore + toCall}를 노림 → 필요 승률 ${need(toCall, potBefore)}`);
+      L.push('레이즈할 정도는 아니지만 따라갈 가치는 있다는 판단');
+      L.push('또는 드로우(플러시·스트레이트 등)를 쫓는 중일 수 있음');
+    }
   } else {
     const pctPot = Math.round(to / Math.max(1, potBefore) * 100);
     if (G.street === 'preflop'){
-      s = G.streetRaises === 1 ? `오픈 레이즈(${Math.round(to / SET.bb * 10) / 10}BB): 주도권을 잡고 약한 핸드를 정리하려는 표준 플레이.`
-        : `리레이즈(${G.streetRaises + 1}벳): 아주 강한 핸드를 표현하거나 상대를 압박. 프리플랍 리레이즈는 보통 상위 5~10% 핸드에서 나옵니다.`;
+      if (G.streetRaises === 1){ L.push(`오픈 레이즈 (${Math.round(to / SET.bb * 10) / 10}BB)`); L.push('주도권을 잡고 약한 핸드를 정리하려는 표준 플레이'); }
+      else { L.push(`리레이즈 (${G.streetRaises + 1}벳)`); L.push('아주 강한 핸드를 표현하거나 상대를 압박'); L.push('프리플랍 리레이즈는 보통 상위 5~10% 핸드에서 나옴'); }
     } else {
-      const cbet = G.pfAggr === P().indexOf(p) && G.streetRaises === 1 && G.street === 'flop' ? '컨티뉴에이션 벳(프리플랍 레이저가 플랍에서도 이어서 베팅) · ' : '';
-      const kind = G.streetRaises === 1 ? '벳' : '레이즈';
-      const size = pctPot <= 40 ? '작은 사이즈: 싸게 밸류를 얻거나 블러프 비용을 줄이는 선택' : pctPot <= 85 ? '표준 사이즈' : '큰 사이즈: 아주 강한 핸드 또는 강한 블러프로 상대를 압박';
-      s = `${cbet}${kind} — 팟 ${potBefore} 대비 ${pctPot}% (${size}).`;
+      if (G.pfAggr === P().indexOf(p) && G.streetRaises === 1 && G.street === 'flop') L.push('컨티뉴에이션 벳: 프리플랍 레이저가 플랍에서도 이어서 베팅');
+      L.push(`${G.streetRaises === 1 ? '벳' : '레이즈'} — 팟 ${potBefore} 대비 ${pctPot}%`);
+      L.push(pctPot <= 40 ? '작은 사이즈: 싸게 밸류를 얻거나 블러프 비용을 줄이는 선택' : pctPot <= 85 ? '표준 사이즈' : '큰 사이즈: 아주 강한 핸드 또는 강한 블러프로 상대를 압박');
     }
-    s += ` 이 베팅을 처음 받는 사람이 콜하려면 승률 ${need(to, potBefore + to)} 필요.`;
+    L.push(`이 베팅을 처음 받는 사람이 콜하려면 승률 ${need(to, potBefore + to)} 필요`);
   }
-  return `${tag} ${s} (성향: ${st.desc})`;
+  L.push(`성향: ${st.desc}`);
+  return L;
 }
 function botAct(idx){
   const p = P()[idx], st = STYLES[p.style];
@@ -568,9 +590,9 @@ function botAct(idx){
   const potBefore = potTotal(), toCall = G.currentBet - p.bet;
   act(idx, d.action, d.to);
   log(`${p.name} [${p.pos}] : ${p.lastAction}`, 'act');
-  log('└ 해설: ' + publicExplain(p, d.action, potBefore, toCall, d.to), 'why');
-  if (SET.learn) log('└ 속마음: ' + d.detail, 'secret');
-  p.decisions.push(`[${STREET_KO[G.street]}] ${p.lastAction} — ${d.detail}`);
+  log(block(`└ 해설 [${p.name} · ${STYLES[p.style].name} · ${p.pos}]`, publicExplain(p, d.action, potBefore, toCall, d.to)), 'why');
+  if (SET.learn) log(block('└ 속마음', d.detail), 'secret');
+  p.decisions.push(block(`[${STREET_KO[G.street]}] ${p.lastAction}`, d.detail));
   G.toAct = (idx + 1) % N(); proceed();
 }
 
@@ -646,7 +668,7 @@ function renderAnalysis(){
     const t = G.turnCtx;
     if (t.toCall > 0) L.push(`━ 팟오즈: ${Math.min(t.toCall, me.chips)}을 콜하면 팟 ${t.pot + t.toCall} → 필요 승률 ${pct(t.po)}  (내 승률 ${pct(t.eq)} ${t.eq >= t.po ? '≥ 필요 승률: 콜은 수학적으로 이득' : '< 필요 승률: 콜은 수학적으로 손해'})`);
     L.push(`━ 코치 추천(밸런스형 기준): ${t.recLabel}`);
-    L.push(`   근거: ${t.rec.detail}`);
+    L.push('   근거:'); t.rec.detail.split('\n').forEach(l => L.push('     · ' + l));
   }
   $('ana').innerHTML = fmt(L.join('\n'));
 }
@@ -676,8 +698,8 @@ function evalHuman(action, ctx, to){
       else s.push(`승률이 높지 않은(공평 몫의 ${rel.toFixed(2)}배) 상태의 베팅 → 블러프/세미블러프 성격. 즉시 이득을 보려면 상대가 ${pct(bet / (potNow + bet))} 이상 폴드해야 합니다.`);
     }
   }
-  s.push(`코치 추천은 '${ctx.recLabel}'이었습니다.`);
-  return s.join(' ');
+  s.push(`코치 추천: ${ctx.recLabel}`);
+  return s;
 }
 function humanAct(action){
   if (!G || G.actor !== 0) return;
@@ -694,8 +716,8 @@ function humanAct(action){
   act(0, action, to);
   log(`나 [${me.pos}] : ${me.lastAction}`, 'me');
   const ev = evalHuman(action, ctx, to);
-  log('└ 해설: ' + ev, 'why');
-  me.decisions.push(`[${STREET_KO[G.street]}] ${me.lastAction} — ${ev}`);
+  log(block('└ 해설', ev), 'why');
+  me.decisions.push(block(`[${STREET_KO[G.street]}] ${me.lastAction}`, ev));
   $('turnmsg').textContent = '';
   G.actor = -1; G.toAct = 1 % N(); proceed();
 }
@@ -796,10 +818,20 @@ function quick(kind){
 $('start').onclick = newGame;
 $('view').onchange = () => { VIEW = $('view').value; rerenderAll(); };
 VIEW = $('view').value;
+// 탭별로 페이지 스크롤 위치와 로그 내부 스크롤 위치를 기억했다가 복원
+const tabState = {ana: {win: null}, log: {win: null, top: 0, atBottom: true}};
+let curTab = 'ana';
 function tab(which){
+  if (which === curTab) return;
+  const L = $('log'), cur = tabState[curTab];
+  cur.win = window.scrollY;
+  if (curTab === 'log'){ cur.top = L.scrollTop; cur.atBottom = nearBottom(L); }
   $('tAna').classList.toggle('on', which === 'ana'); $('tLog').classList.toggle('on', which === 'log');
   $('secAna').classList.toggle('on', which === 'ana'); $('secLog').classList.toggle('on', which === 'log');
-  if (which === 'log') $('log').scrollTop = $('log').scrollHeight;
+  curTab = which;
+  const nx = tabState[which];
+  if (which === 'log') L.scrollTop = nx.atBottom ? L.scrollHeight : nx.top;
+  window.scrollTo(0, nx.win != null ? nx.win : cur.win);
 }
 $('tAna').onclick = () => tab('ana'); $('tLog').onclick = () => tab('log');
 $('bFold').onclick = () => humanAct('fold');
