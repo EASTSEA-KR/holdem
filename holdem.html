@@ -112,6 +112,7 @@
   <label>BB <input id="bb" type="number" value="2" min="2"></label>
   <label>속도 <select id="speed"><option value="300">빠름</option><option value="900" selected>보통</option><option value="1800">느림</option></select></label>
   <label>보기 <select id="view"><option value="text">흑백문자</option><option value="symbol" selected>특수문자</option><option value="card">카드</option></select></label>
+  <label>로그 <select id="logMode"><option value="hand" selected>단판</option><option value="all">전체</option></select></label>
   <label><input id="learn" type="checkbox"> 학습 모드</label>
   <button id="start">새 게임 시작</button>
 </div>
@@ -350,10 +351,13 @@ function appendLog(e, force){
   const d = document.createElement('div'); d.className = e.cls || ''; d.innerHTML = fmt(e.text); $('log').appendChild(d);
   if (stick) S.scrollTop = S.scrollHeight;   // 맨 아래를 보고 있을 때만 따라 내려감
 }
-function log(text, cls){ const e = {text, cls}; LOGS.push(e); appendLog(e); }
+// 로그 보기: 단판 = 지금 진행 중인 핸드만, 전체 = 모든 기록
+const logVisible = e => $('logMode').value === 'all' || !G || (e.g === gameNo && (e.h === G.handNo || (e.h === 0 && G.handNo <= 1)));
+function log(text, cls){ const e = {text, cls, g: gameNo, h: G ? G.handNo : 0}; LOGS.push(e); if (logVisible(e)) appendLog(e); }
+function refreshLog(){ $('log').innerHTML = ''; LOGS.forEach(e => { if (logVisible(e)) appendLog(e, false); }); const S = logBox(); S.scrollTop = S.scrollHeight; tabState.log.atBottom = true; }
 function rerenderAll(){
   const S = logBox(), bottom = nearBottom(S), top = S.scrollTop, wy = window.scrollY;
-  $('log').innerHTML = ''; LOGS.forEach(e => appendLog(e, false));
+  $('log').innerHTML = ''; LOGS.forEach(e => { if (logVisible(e)) appendLog(e, false); });
   S.scrollTop = bottom ? S.scrollHeight : top;
   renderRanks();
   if (G) render();
@@ -384,7 +388,7 @@ function startHand(){
   P().forEach(p => { if (p.chips <= 0) p.out = true; });
   if (P()[0].out){ log('당신의 칩이 모두 소진되었습니다. [새 게임 시작]으로 다시 도전하세요.', 'win'); endGame('패배 — 칩 소진'); G.street = 'done'; render(); showNext(false); return; }
   if (P().filter(p => !p.out).length === 1){ log('🏆 모든 상대를 탈락시켰습니다!', 'win'); endGame('우승'); G.street = 'done'; render(); showNext(false); return; }
-  G.handNo++; G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
+  G.handNo++; if ($('logMode').value === 'hand') refreshLog(); G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
   G.dealer = nextSeat(G.dealer, p => !p.out);
   P().forEach(p => Object.assign(p, {hole:[], folded:false, allIn:false, bet:0, totalBet:0, acted:false, decisions:[], lastAction:''}));
   G.deck = shuffle(FULL.slice()); G.board = []; G.street = 'preflop';
@@ -826,6 +830,7 @@ function quick(kind){
 }
 
 $('start').onclick = newGame;
+$('logMode').onchange = refreshLog;
 $('view').onchange = () => { VIEW = $('view').value; rerenderAll(); };
 VIEW = $('view').value;
 // 탭별 스크롤 위치를 기억했다가 복원 (숨겨진 상자는 위치를 잃어버리므로)
