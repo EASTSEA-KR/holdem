@@ -158,8 +158,8 @@ let VIEW = 'text';
 function fmtCard(c){
   if (c === 'b') return VIEW === 'card' ? '<span class="cd">\u{1F0A0}</span>' : '??';
   c = +c; const r = c >> 2, s = c & 3, red = s === 1 || s === 3;
-  if (VIEW === 'symbol') return `<spanred?'class="red"':''>{SYM[s]}${rn(r)}</span>`;
-  if (VIEW === 'card'){ const off = r === 14 ? 1 : r === 11 ? 11 : r === 12 ? 13 : r === 13 ? 14 : r; return `<span class="cdred?'red':''"title="{SUITS[s]}rn(r)">{String.fromCodePoint(UNI_BASE[s] + off)}</span>`; }
+  if (VIEW === 'symbol') return `<span${red ? ' class="red"' : ''}>${SYM[s]}${rn(r)}</span>`;
+  if (VIEW === 'card'){ const off = r === 14 ? 1 : r === 11 ? 11 : r === 12 ? 13 : r === 13 ? 14 : r; return `<span class="cd${red ? ' red' : ''}" title="${SUITS[s]}${rn(r)}">${String.fromCodePoint(UNI_BASE[s] + off)}</span>`; }
   return SUITS[s] + rn(r);
 }
 const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -204,7 +204,7 @@ function describe(sc){
     case 5: return `플러시 (${k.join('·')})`;
     case 4: return `스트레이트 (${k[0]} 하이)`;
     case 3: return `트리플 (${k[0]})` + (k.length > 1 ? `, 키커 ${k.slice(1).join('·')}` : '');
-    case 2: return `투페어 (k[0]·{k[1]})` + (k[2] ? `, 키커 ${k[2]}` : '');
+    case 2: return `투페어 (${k[0]}·${k[1]})` + (k[2] ? `, 키커 ${k[2]}` : '');
     case 1: return `원페어 (${k[0]})` + (k.length > 1 ? `, 키커 ${k.slice(1).join('·')}` : '');
     default: return `하이카드 (${k.join('·')})`;
   }
@@ -325,7 +325,7 @@ let G = null, SET = {}, gameNo = 0;
 function endGame(reason){
   G.ended = true;
   const me = G.players[0];
-  log(`■■■ 게임 #${gameNo} 종료 · ${reason} · 진행 ${G.handNo}핸드 · 내 칩 ${me.chips} (시작 ${SET.chips}, me.chips-SET.chips>=0?'+':''{me.chips - SET.chips}) ■■■`, 'game');
+  log(`■■■ 게임 #${gameNo} 종료 · ${reason} · 진행 ${G.handNo}핸드 · 내 칩 ${me.chips} (시작 ${SET.chips}, ${me.chips - SET.chips >= 0 ? '+' : ''}${me.chips - SET.chips}) ■■■`, 'game');
 }
 const P = () => G.players;
 const N = () => G.players.length;
@@ -342,7 +342,7 @@ function rerenderAll(){ $('log').innerHTML = ''; LOGS.forEach(appendLog); if (G)
 
 function newGame(){
   const n = Math.min(7, Math.max(3, +$('n').value));
-  const sb = Math.max(1, Math.floor(+('sb').value)),bb=Math.max(sb,Math.floor(+('bb').value)), chips = Math.max(bb * 2, Math.floor(+$('chips').value));
+  const sb = Math.max(1, Math.floor(+$('sb').value)), bb = Math.max(sb, Math.floor(+$('bb').value)), chips = Math.max(bb * 2, Math.floor(+$('chips').value));
   SET = {n, sb, bb, chips, delay: +$('speed').value, learn: $('learn').checked};
   const names = shuffle(['민준','서연','도윤','하은','지호','수아','현우']);
   const keys = ['TAG','LAG','ROCK','STATION','BAL'];
@@ -354,7 +354,7 @@ function newGame(){
   gameNo++;
   G = {players, dealer: Math.floor(Math.random() * n), handNo: 0, token: 0, board: [], street: 'done', currentBet: 0, minRaise: bb, streetRaises: 0, actor: -1, toAct: 0, cache: {}, revealed: false, pfAggr: -1};
   log(`■■■ 게임 #${gameNo} 시작 ■■■`, 'game');
-  log(`${n}인 · 시작 칩 ${chips} · 블라인드 sb/{bb}`, 'sys');
+  log(`${n}인 · 시작 칩 ${chips} · 블라인드 ${sb}/${bb}`, 'sys');
   players.slice(1).forEach(p => log(`  ${p.name}: ${STYLES[p.style].name} — ${STYLES[p.style].desc}`, 'sys'));
   log('봇들은 AI가 아니라 규칙(첸 점수, 몬테카를로 승률, 팟오즈, 포지션, 성향)으로 판단합니다.', 'sys');
   startHand();
@@ -374,11 +374,11 @@ function startHand(){
   const sbI = alive === 2 ? G.dealer : nextSeat(G.dealer, p => !p.out);
   const bbI = nextSeat(sbI, p => !p.out);
   log(`═══ 핸드 #${G.handNo} ═══  딜러(BTN): ${P()[G.dealer].name}`, 'street');
-  log('포지션: ' + P().filter(p => !p.out).map(p => `p.name={p.pos}`).join(', '), 'sys');
+  log('포지션: ' + P().filter(p => !p.out).map(p => `${p.name}=${p.pos}`).join(', '), 'sys');
   postBlind(sbI, SET.sb, '스몰 블라인드'); postBlind(bbI, SET.bb, '빅 블라인드');
   G.currentBet = SET.bb; G.minRaise = SET.bb; G.streetRaises = 0;
   const me = P()[0], ch = chenScore(me.hole);
-  log(`내 카드: ${cardsStr(me.hole)} — ${handType(me.hole)}, 첸 점수 ch({chenTier(ch)}), 내 포지션 ${me.pos}: ${PCN[posClass(me.pos)]}`, 'me');
+  log(`내 카드: ${cardsStr(me.hole)} — ${handType(me.hole)}, 첸 점수 ${ch}(${chenTier(ch)}), 내 포지션 ${me.pos}: ${PCN[posClass(me.pos)]}`, 'me');
   G.toAct = nextSeat(bbI, p => !p.out);
   render(); proceed();
 }
@@ -391,7 +391,7 @@ function assignPositions(){
   POSN[order.length - 3].forEach((nm, k) => P()[order[3 + k]].pos = nm);
 }
 function put(p, amt){ amt = Math.min(amt, p.chips); p.chips -= amt; p.bet += amt; p.totalBet += amt; if (p.chips === 0) p.allIn = true; return amt; }
-function postBlind(i, amt, label){ const p = P()[i]; const a = put(p, amt); log(`${p.name} ${label} a{p.allIn ? ' (올인)' : ''}`, 'sys'); }
+function postBlind(i, amt, label){ const p = P()[i]; const a = put(p, amt); log(`${p.name} ${label} ${a}${p.allIn ? ' (올인)' : ''}`, 'sys'); }
 
 function needsAction(p){ return !p.out && !p.folded && !p.allIn && (!p.acted || p.bet < G.currentBet); }
 
@@ -477,11 +477,11 @@ function decide(p, st, det, eqGiven){
   if (G.street === 'preflop'){
     const chen = chenScore(p.hole), adj = {early:2, middle:1, late:0, blind:.5}[pc];
     const playTh = st.play + adj, raiseTh = st.raise + adj * .5, r = G.streetRaises;
-    why.push(`${cardsStr(p.hole)} = ${handType(p.hole)}, 첸 점수 chen({chenTier(chen)})`);
+    why.push(`${cardsStr(p.hole)} = ${handType(p.hole)}, 첸 점수 ${chen}(${chenTier(chen)})`);
     why.push(`${p.pos} 기준선: 참여 ${playTh} / 레이즈 ${raiseTh}`);
     if (r === 0){
       const limpers = P().filter(q => q !== p && !q.folded && !q.out && q.acted && q.bet > 0).length;
-      if (chen >= raiseTh) return R('raise', BB * 3 + limpers * BB, `레이즈 기준 이상 → 오픈 레이즈 BB*3+limpers*BB(3BB{limpers ? ` + 림퍼 ${limpers}명당 1BB` : ''})로 주도권을 잡고 약한 핸드를 정리`);
+      if (chen >= raiseTh) return R('raise', BB * 3 + limpers * BB, `레이즈 기준 이상 → 오픈 레이즈 ${BB * 3 + limpers * BB} (3BB${limpers ? ` + 림퍼 ${limpers}명당 1BB` : ''})로 주도권을 잡고 약한 핸드를 정리`);
       if (chen >= playTh) return toCall === 0 ? R('check', 0, 'BB 옵션: 추가 비용 없이 플랍 확인') : R('call', 0, '참여 기준은 넘지만 레이즈할 정도는 아님 → 싸게 따라가서(림프) 플랍을 본다');
       if (toCall === 0) return R('check', 0, '약하지만 공짜로 플랍을 볼 수 있으니 체크');
       if (pc === 'blind' && toCall <= BB / 2 && chen >= playTh - 2) return R('call', 0, `SB에서 ${toCall}만 더 내면 되니 싸게 참여`);
@@ -503,7 +503,7 @@ function decide(p, st, det, eqGiven){
   const o = G.board.length < 5 ? outsCalc(p.hole, G.board) : null, outs = o ? o.pureTotal : 0;
   why.push(`${cardsStr(p.hole)} → 현재 ${describe(cur)}`);
   why.push(`상대 ${opp}명 대비 추정 승률 ${pct(eq)}` + (disc ? ` → 상대가 베팅했으니 상대 범위가 강하다고 보고 ${pct(eqA)}로 할인` : ''));
-  why.push(`공평 몫(1/opp+1={pct(1 / (opp + 1))}) 대비 ${rel.toFixed(2)}배`);
+  why.push(`공평 몫(1/${opp + 1}=${pct(1 / (opp + 1))}) 대비 ${rel.toFixed(2)}배`);
   if (outs) why.push(`개선 아웃츠 ${outs}장`);
   if (toCall > 0) why.push(`팟오즈: ${toCall} 콜 → 팟 ${pot + toCall}, 필요 승률 ${pct(po)}`);
   if (toCall === 0){
@@ -513,7 +513,7 @@ function decide(p, st, det, eqGiven){
     return R('check', 0, `베팅 기준(${st.betRel}배) 미달 → 체크로 팟을 작게 유지하고 공짜 카드를 본다`);
   }
   if (rel >= st.raiseRel && eqA > po) return R('raise', G.currentBet + .75 * (pot + toCall), `매우 강함(기준 ${st.raiseRel}배 이상) → 레이즈로 팟을 키움`);
-  if (eqA >= po + st.margin) return R('call', 0, `승률 ${pct(eqA)} ≥ 필요 승률 pct(po){st.margin ? (st.margin > 0 ? ' + 여유분' : ' (성향상 느슨하게 콜)') : ''} → 콜이 장기적으로 이득`);
+  if (eqA >= po + st.margin) return R('call', 0, `승률 ${pct(eqA)} ≥ 필요 승률 ${pct(po)}${st.margin ? (st.margin > 0 ? ' + 여유분' : ' (성향상 느슨하게 콜)') : ''} → 콜이 장기적으로 이득`);
   if (o && G.board.length === 3 && outs >= 8 && toCall <= .6 * pot && eqA >= po - .07) return R('call', 0, '당장 승률은 살짝 모자라지만 드로우가 맞으면 더 받아낼 수 있음(임플라이드 오즈) → 콜');
   return R('fold', 0, `승률 ${pct(eqA)} < 필요 승률 ${pct(po)} → 폴드가 장기적으로 이득`);
 }
@@ -556,7 +556,7 @@ function publicExplain(p, action, potBefore, toCall, to){
       const cbet = G.pfAggr === P().indexOf(p) && G.streetRaises === 1 && G.street === 'flop' ? '컨티뉴에이션 벳(프리플랍 레이저가 플랍에서도 이어서 베팅) · ' : '';
       const kind = G.streetRaises === 1 ? '벳' : '레이즈';
       const size = pctPot <= 40 ? '작은 사이즈: 싸게 밸류를 얻거나 블러프 비용을 줄이는 선택' : pctPot <= 85 ? '표준 사이즈' : '큰 사이즈: 아주 강한 핸드 또는 강한 블러프로 상대를 압박';
-      s = `cbet{kind} — 팟 ${potBefore} 대비 pctPot%({size}).`;
+      s = `${cbet}${kind} — 팟 ${potBefore} 대비 ${pctPot}% (${size}).`;
     }
     s += ` 이 베팅을 처음 받는 사람이 콜하려면 승률 ${need(to, potBefore + to)} 필요.`;
   }
@@ -567,7 +567,7 @@ function botAct(idx){
   const d = legalize(p, decide(p, st, false));
   const potBefore = potTotal(), toCall = G.currentBet - p.bet;
   act(idx, d.action, d.to);
-  log(`p.name[{p.pos}] : ${p.lastAction}`, 'act');
+  log(`${p.name} [${p.pos}] : ${p.lastAction}`, 'act');
   log('└ 해설: ' + publicExplain(p, d.action, potBefore, toCall, d.to), 'why');
   if (SET.learn) log('└ 속마음: ' + d.detail, 'secret');
   p.decisions.push(`[${STREET_KO[G.street]}] ${p.lastAction} — ${d.detail}`);
@@ -605,7 +605,7 @@ function renderAnalysis(){
   if (me.out){ $('ana').textContent = '탈락했습니다.'; return; }
   const A = getAnalysis(), L = [];
   const ch = chenScore(me.hole);
-  L.push(`━ 내 손패: cardsStr(me.hole) ({handType(me.hole)} · 첸 점수 ${ch} · ${chenTier(ch)})` + (me.folded ? '  ※ 이미 폴드함 — 참고용 분석' : ''));
+  L.push(`━ 내 손패: ${cardsStr(me.hole)}  (${handType(me.hole)} · 첸 점수 ${ch} · ${chenTier(ch)})` + (me.folded ? '  ※ 이미 폴드함 — 참고용 분석' : ''));
   // 노릴 수 있는 족보
   const curCat = catOf(A.cur);
   L.push('');
@@ -617,7 +617,7 @@ function renderAnalysis(){
     const o = A.outs, keys = Object.keys(o.by).map(Number).sort((a, b) => b - a);
     L.push(`   · 다음 카드 1장으로 족보가 올라가는 아웃츠 (남은 ${o.unseen}장 중):`);
     if (!keys.length) L.push('     없음');
-    keys.forEach(k => L.push(`     ${CAT[k]}: o.by[k].n장{o.by[k].n - o.by[k].pure ? ` (그중 ${o.by[k].n - o.by[k].pure}장은 보드만으로 완성돼 상대도 공유)` : ''} → o.by[k].cards.slice(0,12).map(cs).join(''){o.by[k].cards.length > 12 ? ' …' : ''}`));
+    keys.forEach(k => L.push(`     ${CAT[k]}: ${o.by[k].n}장${o.by[k].n - o.by[k].pure ? ` (그중 ${o.by[k].n - o.by[k].pure}장은 보드만으로 완성돼 상대도 공유)` : ''} → ${o.by[k].cards.slice(0, 12).map(cs).join(' ')}${o.by[k].cards.length > 12 ? ' …' : ''}`));
     if (o.pureTotal){
       L.push(`     순수 아웃츠 ${o.pureTotal}장 → 다음 장에 맞을 확률 ${pct(o.pureTotal / o.unseen)}` + (G.board.length === 3 ? `, 리버까지 ${pct(1 - ((o.unseen - o.pureTotal) * (o.unseen - 1 - o.pureTotal)) / (o.unseen * (o.unseen - 1)))}` : ''));
       L.push(`     암산법(4·2 법칙): 아웃츠 × ${G.board.length === 3 ? '4 ≈ ' + Math.min(100, o.pureTotal * 4) + '% (리버까지)' : '2 ≈ ' + o.pureTotal * 2 + '% (리버 한 장)'}`);
@@ -634,9 +634,9 @@ function renderAnalysis(){
       const ks = Object.keys(b.cats).map(Number).sort((a, x) => x - a);
       L.push(`   족보 종류로 ${ks.filter(k => k > curCat).length}개 위: ${ks.filter(k => k > curCat).map(k => CAT[k]).join(', ') || '(없음 — 같은 족보 안에서 더 높은 것만 존재)'}`);
       L.push(`   숫자·키커까지 구분한 세부 단계로는 ${b.distinct}단계 위`);
-      ks.forEach(k => L.push(`     · CAT[k]{k === curCat ? '(나보다 높은 것)' : ''}: ${b.cats[k].n}조합, 세부 ${b.cats[k].distinct.size}단계, 최고 ${describe(b.cats[k].best)} (예: ${cardsStr(b.cats[k].ex)})`));
+      ks.forEach(k => L.push(`     · ${CAT[k]}${k === curCat ? '(나보다 높은 것)' : ''}: ${b.cats[k].n}조합, 세부 ${b.cats[k].distinct.size}단계, 최고 ${describe(b.cats[k].best)} (예: ${cardsStr(b.cats[k].ex)})`));
     }
-    L.push(`   상대 1명이 가질 수 있는 ${b.total}가지 조합 중: 나를 이김 b.better({pct(b.better / b.total)}) · 비김 ${b.tie} · 내가 이김 b.worse({pct(b.worse / b.total)})`);
+    L.push(`   상대 1명이 가질 수 있는 ${b.total}가지 조합 중: 나를 이김 ${b.better}(${pct(b.better / b.total)}) · 비김 ${b.tie} · 내가 이김 ${b.worse}(${pct(b.worse / b.total)})`);
   } else {
     L.push('━ (1) 넛 / (1)과 (2) 사이: 보드가 아직 없어 플랍부터 계산됩니다.');
   }
@@ -654,7 +654,7 @@ function evalHuman(action, ctx, to){
   const s = [];
   const {eq, po, toCall, pot, opp, chen, street} = ctx;
   if (street === 'preflop'){
-    s.push(`첸 점수 chen({chenTier(chen)}), 포지션 ${P()[0].pos}.`);
+    s.push(`첸 점수 ${chen}(${chenTier(chen)}), 포지션 ${P()[0].pos}.`);
     if (action === 'fold' && toCall === 0) s.push('체크로 공짜 플랍을 볼 수 있었는데 폴드했어요. 체크가 항상 낫습니다.');
     else if (action === 'raise') s.push(`레이즈는 주도권을 잡고 팟을 키웁니다. ${chen >= 9 ? '강한 핸드라 적절한 선택.' : '약한 핸드로 레이즈하면 블러프 성격 — 레이트 포지션 스틸이 아니라면 위험합니다.'}`);
     else if (action === 'call') s.push(chen >= 7 ? '따라갈 만한 핸드.' : '약한 핸드로 콜 — 플랍에서 맞지 않으면 빨리 포기하세요.');
@@ -736,7 +736,7 @@ function showdown(){
     const share = Math.floor(pt.amt / winners.length); let rem = pt.amt - share * winners.length;
     winners.forEach(w => { w.chips += share + (rem > 0 ? 1 : 0); rem--; });
     const name = pots.length === 1 ? '팟' : i === 0 ? '메인 팟' : `사이드 팟 ${i}`;
-    log(`${name} pt.amt{pots.length > 1 ? ` (자격: ${pt.elig.map(p => p.name).join(', ')})` : ''} → winners.map(w=>w.name).join(','){winners.length > 1 ? ' 분할' : ''} 승리!`, 'win');
+    log(`${name} ${pt.amt}${pots.length > 1 ? ` (자격: ${pt.elig.map(p => p.name).join(', ')})` : ''} → ${winners.map(w => w.name).join(', ')}${winners.length > 1 ? ' 분할' : ''} 승리!`, 'win');
     const losers = pt.elig.filter(p => p.score !== top).sort((a, b) => b.score - a.score);
     if (losers.length){
       const l = losers[0], wc = catOf(top), lc = catOf(l.score);
@@ -751,7 +751,7 @@ function finishHand(){
   log(`──── 핸드 #${G.handNo} 복기 (모든 카드·판단 근거 공개) ────`, 'street');
   P().forEach(p => {
     if (!p.hole.length) return;
-    log(`p.name{p.isHuman ? '' : ` (${STYLES[p.style].name})`}: cardsStr(p.hole){G.board.length ? '  → 최종 ' + describe(evaluate(p.hole.concat(G.board))) : ''}`, 'act');
+    log(`${p.name}${p.isHuman ? '' : ` (${STYLES[p.style].name})`}: ${cardsStr(p.hole)}${G.board.length ? '  → 최종 ' + describe(evaluate(p.hole.concat(G.board))) : ''}`, 'act');
     p.decisions.forEach(d => log('  ' + d, 'rev'));
   });
   log('칩 현황: ' + P().filter(p => !p.out).map(p => `${p.name} ${p.chips}`).join(' / '), 'sys');
@@ -769,19 +769,19 @@ function render(){
   P().forEach((p, i) => {
     const show = p.isHuman || SET.learn || (G.revealed && !p.folded) || (showAll);
     const status = p.out ? '탈락' : p.folded ? '폴드' : p.allIn ? '올인' : (p.lastAction || '');
-    h += `<tr class="${i === G.actor ? 'act' : ''} p.folded||p.out?'dim':''"><td>{i === G.actor ? '▶' : ''}i===G.dealer&&!p.out?'D':''</td><td>{p.name}</td><td class="c-style">p.isHuman?'-':STYLES[p.style].name</td><td>{p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos)}</td><td>p.chips</td><td>{p.bet || ''}</td><td class="c-total">p.totalBet||''</td><td>{status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
+    h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? ' D' : ''}</td><td>${p.name}</td><td class="c-style">${p.isHuman ? '-' : STYLES[p.style].name}</td><td>${p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos)}</td><td>${p.chips}</td><td>${p.bet || ''}</td><td class="c-total">${p.totalBet || ''}</td><td>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
   });
   $('tbl').innerHTML = h;
-  ('info').textContent=`핸드#{G.handNo} · ${STREET_KO[G.street]} · 팟 ${potTotal()} · 현재 베팅 ${G.currentBet} · 최소 레이즈 폭 ${G.minRaise} · 블라인드 SET.sb/{SET.bb}`;
+  $('info').textContent = `핸드 #${G.handNo} · ${STREET_KO[G.street]} · 팟 ${potTotal()} · 현재 베팅 ${G.currentBet} · 최소 레이즈 폭 ${G.minRaise} · 블라인드 ${SET.sb}/${SET.bb}`;
   $('board').innerHTML = G.board.length ? fmt(cardsStr(G.board)) : '<span class="empty">(아직 공개된 카드 없음)</span>';
   const myTurn = G.actor === 0 && G.street !== 'done';
   ['bFold','bCall','bRaise','qMin','qHalf','qPot','qAll','amt'].forEach(id => $(id).disabled = !myTurn);
   if (myTurn){
     const toCall = G.currentBet - me.bet;
-    $('bCall').textContent = toCall === 0 ? '체크' : `콜 Math.min(toCall,me.chips){me.chips <= toCall ? ' (올인)' : ''}`;
+    $('bCall').textContent = toCall === 0 ? '체크' : `콜 ${Math.min(toCall, me.chips)}${me.chips <= toCall ? ' (올인)' : ''}`;
     $('bRaise').textContent = G.currentBet === 0 ? '벳' : '레이즈';
     const cr = canRaise(me); ['bRaise','qMin','qHalf','qPot','qAll','amt'].forEach(id => $(id).disabled = !cr);
-  } else if (G.street !== 'done' && !me.folded && !me.out) ('turnmsg').textContent=G.actor>0?`{P()[G.actor].name} 생각 중...` : '';
+  } else if (G.street !== 'done' && !me.folded && !me.out) $('turnmsg').textContent = G.actor > 0 ? `${P()[G.actor].name} 생각 중...` : '';
   else if (me.folded && G.street !== 'done') $('turnmsg').textContent = '폴드했습니다. 핸드가 끝날 때까지 관전합니다.';
   if (G.street !== 'done') $('bNext').style.display = 'none';
   if (me.hole.length) renderAnalysis();
@@ -812,5 +812,3 @@ $('learn').onchange = () => { SET.learn = $('learn').checked; render(); };
 </script>
 </body>
 </html>
-
-
