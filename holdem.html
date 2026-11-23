@@ -103,7 +103,7 @@
   <button id="tgRank">족보 보기 ◀</button>
 </div>
 <div id="setPanel" class="panel">
-  <label>인원 <select id="n"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option></select></label>
+  <label>인원 <select id="n"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
   <label>시작 칩 <input id="chips" type="number" value="2500" min="10"></label>
   <label>SB <input id="sb" type="number" value="1" min="1"></label>
   <label>BB <input id="bb" type="number" value="2" min="2"></label>
@@ -155,7 +155,7 @@ const cs = c => '\u0001' + c + '\u0002';           // 표시 모드에 맞게 �
 const HIDDEN = '\u0001b\u0002 \u0001b\u0002';
 const SYM = ['♠','◆','♣','♥'];
 const UNI_BASE = [0x1F0A0, 0x1F0C0, 0x1F0D0, 0x1F0B0]; // S, D, C, H
-let VIEW = 'text';
+let VIEW = 'symbol';
 function fmtCard(c){
   if (c === 'b') return VIEW === 'card' ? '<span class="cd">\u{1F0A0}</span>' : '??';
   c = +c; const r = c >> 2, s = c & 3, red = s === 1 || s === 3;
