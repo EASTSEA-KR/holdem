@@ -555,7 +555,7 @@ function decide(p, st, det, eqGiven){
   const eq = eqGiven != null ? eqGiven : equity(p.hole, G.board, opp, det ? 1500 : 500);
   const r = G.streetRaises, disc = toCall > 0 ? Math.min(.35, .1 * r) : 0, eqA = eq * (1 - disc), rel = eqA * (opp + 1);
   const cur = evaluate(p.hole.concat(G.board));
-  const o = G.board.length < 5 ? outsCalc(p.hole, G.board) : null, outs = o ? Object.keys(o.by).filter(k => +k >= 2).reduce((n, k) => n + o.by[k].pure, 0) : 0;
+  const o = G.board.length < 5 ? outsCalc(p.hole, G.board) : null, outs = o ? o.pureTotal : 0;
   why.push(`${cardsStr(p.hole)} → 현재 ${describe(cur)}`);
   why.push(`상대 ${opp}명 대비 추정 승률 ${pct(eq)}` + (disc ? ` → 상대가 베팅했으니 상대 범위가 강하다고 보고 ${pct(eqA)}로 할인` : ''));
   why.push(`공평 몫(1/${opp + 1}=${pct(1 / (opp + 1))}) 대비 ${rel.toFixed(2)}배`);
@@ -679,11 +679,11 @@ function renderAnalysis(){
   let cum = 0;
   for (let c = 8; c >= 0; c--){ cum += A.probs.p[c]; if (c >= curCat && A.probs.p[c] > 0) L.push(`${CAT[c].padEnd(9, '　')} ${pct(A.probs.p[c]).padStart(6)}  (이상 ${pct(cum).padStart(6)})`); }
   if (A.outs){
-    const o = A.outs, keys = Object.keys(o.by).map(Number).filter(k => k >= 2).sort((a, b) => b - a);
-    const pure = keys.reduce((n, k) => n + o.by[k].pure, 0);
-    L.push(`· 다음 카드 1장으로 올라가는 아웃츠 (투페어 이상, 남은 ${o.unseen}장 중)`);
+    const o = A.outs, keys = Object.keys(o.by).map(Number).sort((a, b) => b - a);
+    const pure = o.pureTotal;
+    L.push(`· 다음 카드 1장으로 올라가는 아웃츠 (남은 ${o.unseen}장 중)`);
     if (!keys.length) L.push('  - 없음');
-    keys.forEach(k => L.push(`  - ${CAT[k]}: ${o.by[k].n}장${o.by[k].n - o.by[k].pure ? ` (그중 ${o.by[k].n - o.by[k].pure}장은 보드만으로 완성 → 상대도 공유)` : ''} → ${o.by[k].cards.slice(0, 12).map(cs).join(' ')}${o.by[k].cards.length > 12 ? ' …' : ''}`));
+    keys.forEach(k => L.push(`  - ${CAT[k]}: ${o.by[k].n}장${o.by[k].n - o.by[k].pure ? ` (그중 ${o.by[k].n - o.by[k].pure}장은 보드만으로 완성 → 상대도 공유)` : ''}` + (k >= 2 ? ` → ${o.by[k].cards.slice(0, 12).map(cs).join(' ')}${o.by[k].cards.length > 12 ? ' …' : ''}` : '')));
     if (pure){
       L.push(`· 순수 아웃츠 ${pure}장 → 다음 장 ${pct(pure / o.unseen)}` + (G.board.length === 3 ? `, 리버까지 ${pct(1 - ((o.unseen - pure) * (o.unseen - 1 - pure)) / (o.unseen * (o.unseen - 1)))}` : ''));
       L.push(`· 4·2 법칙: 아웃츠 × ${G.board.length === 3 ? '4 ≈ ' + Math.min(100, pure * 4) + '% (리버까지)' : '2 ≈ ' + pure * 2 + '% (리버 한 장)'}`);
