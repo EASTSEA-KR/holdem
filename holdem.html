@@ -34,7 +34,9 @@
   #secTable{grid-area:table} #secBoard{grid-area:board} #secAct{grid-area:act}
   #secAna{grid-area:ana} #secLog{grid-area:log} .tabs{grid-area:tabs;display:none}
   .tblwrap{overflow-x:auto}
-  table{border-collapse:collapse;width:100%}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  td,th{overflow:hidden;text-overflow:ellipsis}
+  td small{font-size:.85em;color:inherit;opacity:.8}
   td,th{border:1px solid #bbb;padding:2px 6px;text-align:left;white-space:nowrap}
   tr.act td{font-weight:bold;background:#eee}
   tr.dim td{color:#999}
@@ -46,12 +48,12 @@
   .game{font-weight:bold;text-align:center;background:#222;color:#fff;padding:4px;margin:10px 0 4px !important}
   .handend{color:#555;text-align:center;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:6px !important}
   .me{font-weight:bold}
-  .why{color:#444;padding-left:2ch}
-  .secret{color:#777;padding-left:2ch}
+  .why{color:#444;padding-left:1ch}
+  .secret{color:#777;padding-left:1ch}
   .sys{color:#555}
   .win{font-weight:bold}
   .blind{font-weight:bold;text-align:center;border:1px dashed #555;padding:2px;margin:4px 0 !important}
-  .rev{color:#333;padding-left:2ch}
+  .rev{color:#333;padding-left:1ch}
   #turnmsg{min-height:1.4em;margin-top:4px}
   .red{color:#d00}
   .cd{font-family:"Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols","Segoe UI Emoji",sans-serif;font-size:1.7em;line-height:1;vertical-align:-0.12em}
@@ -85,7 +87,6 @@
     td,th{padding:1px 4px;font-size:12px;line-height:1.3}
     #tbl .cd{font-size:1.35em}
     #secTable{padding:4px 6px}
-    .c-style,.c-total{display:none}
     #board{font-size:20px;text-align:center}
     #board .cd{font-size:1.9em}
     .tabs{display:flex;gap:0;margin-bottom:6px}
@@ -348,7 +349,7 @@ const canRaise = p => !p.acted && p.chips > (G.currentBet - p.bet);
 const rnd = x => Math.max(SET.sb, Math.round(x / SET.sb) * SET.sb);
 
 const LOGS = [];
-const block = (title, lines) => title + '\n' + (Array.isArray(lines) ? lines : String(lines).split('\n')).flatMap(l => l.split(/(?<=[.!])\s+(?=\S)/)).map(l => '   · ' + l).join('\n');
+const block = (title, lines) => title + '\n' + (Array.isArray(lines) ? lines : String(lines).split('\n')).flatMap(l => l.split(/(?<=[.!])\s+(?=\S)/)).map(l => '  · ' + l).join('\n');
 const nearBottom = L => L.scrollHeight - L.scrollTop - L.clientHeight < 40;
 const isMobile = () => window.matchMedia('(max-width: 820px)').matches;
 const logBox = () => isMobile() ? $('secLog') : $('log');   // 실제로 스크롤되는 상자
@@ -580,12 +581,14 @@ function publicExplain(p, action, potBefore, toCall, to){
   const st = STYLES[p.style];
   const need = (c, potAfter) => pct(c / (potAfter + c));
   const L = [];
-  if (action === 'fold'){
+  if (action === 'fold' && G.street === 'preflop'){
+    L.push('시작 핸드 점수(첸 점수)가 이 포지션 기준에 못 미침');
+    L.push(posClass(p.pos) === 'early' ? '먼저 행동하는 자리라 기준이 더 엄격함' : posClass(p.pos) === 'blind' ? '블라인드로 낸 돈은 아깝지만, 약한 핸드로 더 넣지 않음' : '이 핸드로 들어가면 장기적으로 손해라고 판단');
+  } else if (action === 'fold'){
     if (toCall > 0){
       L.push(`콜 ${toCall}을 하려면 승률 ${need(toCall, potBefore)} 이상이 필요했음`);
       L.push('그만큼 강하지 않다고 보고 손실을 끊음');
     } else L.push('폴드');
-    if (G.street === 'preflop') L.push(`프리플랍 폴드 = 대부분 '시작 핸드가 이 포지션 기준에 못 미침'이라는 뜻`);
   } else if (action === 'check'){
     if (G.street === 'preflop') L.push('BB 옵션으로 체크 → 추가 비용 없이 플랍을 봄');
     else { L.push('베팅할 만큼 강하지 않거나, 강한 패를 숨기는(슬로플레이) 선택'); L.push('공짜로 다음 카드를 보려는 의도일 수 있음'); }
@@ -801,7 +804,7 @@ function finishHand(){
   P().forEach(p => {
     if (!p.hole.length) return;
     log(`${p.name}${p.isHuman ? '' : ` (${STYLES[p.style].name})`}: ${cardsStr(p.hole)}${G.board.length ? '  → 최종 ' + describe(evaluate(p.hole.concat(G.board))) : ''}`, 'act');
-    p.decisions.forEach(d => log('  ' + d, 'rev'));
+    p.decisions.forEach(d => log(d, 'rev'));
   });
   log('칩 현황: ' + P().filter(p => !p.out).map(p => `${p.name} ${p.chips}`).join(' / '), 'sys');
   log(`──── 핸드 #${G.handNo} 종료 ────`, 'handend');
@@ -814,12 +817,22 @@ function finishHand(){
 function render(){
   if (!G) return;
   const me = P()[0], showAll = G.street === 'done';
-  let h = '<tr><th></th><th>이름</th><th class="c-style">성향</th><th>포지션</th><th>칩</th><th>베팅</th><th class="c-total">총 투입</th><th>상태</th><th>카드</th></tr>';
+  const mob = isMobile();
+  // 열 너비를 고정해서 진행 중에 표가 흔들리지 않게 함 (상태 열이 남는 폭을 사용)
+  const cols = [['', '3.2ch'], ['이름', '12.5ch']].concat(mob ? [] : [['성향', '15ch']],
+    [['칩', '6ch'], ['베팅', '6ch']], mob ? [] : [['총 투입', '7ch']],
+    [['상태', ''], ['카드', VIEW === 'card' ? '5.6em' : '8ch']]);
+  let h = '<colgroup>' + cols.map(c => `<col${c[1] ? ` style="width:${c[1]}"` : ''}>`).join('') + '</colgroup><tr>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
+  const shortAct = t => (t || '').replace('레이즈 → ', '레이즈 ').replace(' (올인)', '↑');
   P().forEach((p, i) => {
     const show = p.isHuman || SET.learn || (G.revealed && !p.folded) || (showAll);
     const won = G.street === 'done' && G.winners && G.winners.has(i);
-    const status = won ? '<b>WIN</b>' : p.out ? '탈락' : p.folded ? '폴드' : p.allIn ? '올인' : (p.lastAction || '');
-    h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? ' D' : ''}</td><td>${p.name}</td><td class="c-style">${p.isHuman ? '-' : STYLES[p.style].name}</td><td>${p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos)}</td><td>${p.chips}</td><td>${p.bet || ''}</td><td class="c-total">${p.totalBet || ''}</td><td>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
+    const status = won ? '<b>WIN</b>' : p.out ? '탈락' : p.folded ? '폴드' : p.allIn ? '올인' : esc(shortAct(p.lastAction));
+    const pos = p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos);
+    h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? 'D' : ''}</td><td>${p.name}${pos ? `<small>(${pos})</small>` : ''}</td>`
+      + (mob ? '' : `<td>${p.isHuman ? '-' : STYLES[p.style].name}</td>`)
+      + `<td>${p.chips}</td><td>${p.bet || ''}</td>` + (mob ? '' : `<td>${p.totalBet || ''}</td>`)
+      + `<td>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
   });
   $('tbl').innerHTML = h;
   $('info').textContent = `핸드 #${G.handNo} · ${STREET_KO[G.street]} · 팟 ${potTotal()} · 현재 베팅 ${G.currentBet} · 최소 레이즈 폭 ${G.minRaise} · 블라인드 ${SET.sb}/${SET.bb}` + (SET.inc ? ` (상승까지 약 ${Math.max(1, (SET.cycle - SET.orbits) * P().filter(p => !p.out).length - SET.moves)}핸드)` : '');
@@ -917,6 +930,7 @@ $('bCall').onclick = () => humanAct('call');
 $('bRaise').onclick = () => humanAct('raise');
 $('qMin').onclick = () => quick('min'); $('qHalf').onclick = () => quick('half'); $('qPot').onclick = () => quick('pot'); $('qAll').onclick = () => quick('all');
 $('bNext').onclick = () => { showNext(false); startHand(); };
+window.addEventListener('resize', () => { if (G) render(); });
 $('learn').onchange = () => { SET.learn = $('learn').checked; refreshLog(); if (G) render(); };
 ['bFold','bCall','bRaise','qMin','qHalf','qPot','qAll','amt'].forEach(id => $(id).disabled = true);
 </script>
