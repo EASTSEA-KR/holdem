@@ -36,7 +36,7 @@
   .tblwrap{overflow-x:auto}
   table{border-collapse:collapse;width:100%;table-layout:fixed}
   td,th{overflow:hidden;text-overflow:ellipsis}
-  td.sd{white-space:normal}
+  td.sd{white-space:normal;word-break:keep-all}
   td small{font-size:.85em;color:inherit;opacity:.8}
   td,th{border:1px solid #bbb;padding:2px 6px;text-align:left;white-space:nowrap}
   tr.act td{font-weight:bold;background:#eee}
@@ -410,7 +410,7 @@ function startHand(){
   P().forEach(p => { if (p.chips <= 0) p.out = true; });
   if (P()[0].out){ log('당신의 칩이 모두 소진되었습니다. [새 게임 시작]으로 다시 도전하세요.', 'win'); endGame('패배 — 칩 소진'); G.street = 'done'; render(); showNext(false); return; }
   if (P().filter(p => !p.out).length === 1){ log('🏆 모든 상대를 탈락시켰습니다!', 'win'); endGame('우승'); G.street = 'done'; render(); showNext(false); return; }
-  G.handNo++; G.showdown = false; if ($('logMode').value === 'hand') refreshLog(); G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
+  G.handNo++; G.showdown = false; G.won = {}; if ($('logMode').value === 'hand') refreshLog(); G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
   G.dealer = nextSeat(G.dealer, p => !p.out);
   if (G.handNo > 1 && SET.inc > 0){
     const aliveN = P().filter(p => !p.out).length;
@@ -770,7 +770,7 @@ function humanAct(action){
 /* ================= 핸드 종료 ================= */
 function awardSingle(){
   const w = live()[0], amt = potTotal();
-  w.chips += amt; G.winners.add(P().indexOf(w));
+  w.chips += amt; G.winners.add(P().indexOf(w)); G.won[P().indexOf(w)] = amt;
   log(`${w.name}을(를) 제외한 모두가 폴드 → ${w.name}이(가) 팟 ${amt}을 카드 공개 없이 가져갑니다.`, 'win');
   log('└ 해설: 베팅으로 상대를 모두 내려놓게 만들면 패가 약해도 이깁니다. 이것이 블러프가 통하는 이유이자, 끝까지 가지 않아도 이길 수 있는 홀덤의 핵심입니다.', 'why');
   finishHand();
@@ -801,7 +801,7 @@ function showdown(){
     const winners = pt.elig.filter(p => p.score === top);
     winners.sort((a, b) => ((P().indexOf(a) - G.dealer + N()) % N()) - ((P().indexOf(b) - G.dealer + N()) % N()));
     const share = Math.floor(pt.amt / winners.length); let rem = pt.amt - share * winners.length;
-    winners.forEach(w => { w.chips += share + (rem > 0 ? 1 : 0); rem--; G.winners.add(P().indexOf(w)); });
+    winners.forEach(w => { const g = share + (rem > 0 ? 1 : 0), k = P().indexOf(w); w.chips += g; rem--; G.winners.add(k); G.won[k] = (G.won[k] || 0) + g; });
     const name = pots.length === 1 ? '팟' : i === 0 ? '메인 팟' : `사이드 팟 ${i}`;
     log(`${name} ${pt.amt}${pots.length > 1 ? ` (자격: ${pt.elig.map(p => p.name).join(', ')})` : ''} → ${winners.map(w => w.name).join(', ')}${winners.length > 1 ? ' 분할' : ''} 승리!`, 'win');
     const losers = pt.elig.filter(p => p.score !== top).sort((a, b) => b.score - a.score);
@@ -829,6 +829,13 @@ function finishHand(){
 }
 
 /* ================= 렌더 ================= */
+// 핸드 종료 시 베팅 칸 = 이번 판 손익(+/-), 진행 중엔 이번 라운드 베팅액
+function betCell(p, i){
+  if (G.street !== 'done' || !G.won) return p.bet || '';
+  if (p.out || !p.hole.length) return '';
+  const net = (G.won[i] || 0) - p.totalBet;
+  return net > 0 ? `<b>+${net}</b>` : net < 0 ? `${net}` : '0';
+}
 function render(){
   if (!G) return;
   const me = P()[0], showAll = G.street === 'done';
@@ -847,7 +854,7 @@ function render(){
     const pos = p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos);
     h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? 'D' : ''}</td><td>${p.name}${pos ? `<small>(${pos})</small>` : ''}</td>`
       + (mob ? '' : `<td>${p.isHuman ? '-' : STYLES[p.style].name}</td>`)
-      + `<td>${p.chips}</td><td>${p.bet || ''}</td>` + (mob ? '' : `<td>${p.totalBet || ''}</td>`)
+      + `<td>${p.chips}</td><td>${betCell(p, i)}</td>` + (mob ? '' : `<td>${p.totalBet || ''}</td>`)
       + `<td${sd ? ' class="sd"' : ''}>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
   });
   $('tbl').innerHTML = h;
