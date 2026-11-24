@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>텍스트 해설 학습판</title>
+<title>텍스트 텍사스 홀덤 · 해설 학습판</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:Consolas,"D2Coding","Malgun Gothic",monospace;font-size:14px;margin:12px;color:#111;background:#fff}
@@ -58,7 +58,16 @@
   #turnmsg{min-height:1.4em;margin-top:4px}
   .red{color:#d00}
   .cd{font-family:"Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols","Segoe UI Emoji",sans-serif;font-size:1.7em;line-height:1;vertical-align:-0.12em}
-  #board .cd{font-size:2.4em}
+  .cd{font-weight:normal !important}
+  /* 카드 모드 크기: 분석·로그 1.5배, 플레이어 2배, 보드 1.5배 (기존 대비) */
+  #ana .cd,#log .cd,#rankText .cd{font-size:2.55em;vertical-align:-0.2em}
+  #board .cd{font-size:3.6em;line-height:1.05}
+  #tbl .cd{font-size:3.4em;line-height:1;vertical-align:middle}
+  #tbl .cards{white-space:nowrap;display:inline-block;vertical-align:middle;padding:1px 0}
+  #tbl .cards .cd{line-height:1.3;vertical-align:top;display:inline-block}
+  #tbl .cards .cd + .cd{margin-left:-.22em}
+  #board .cd + .cd{margin-left:.08em}
+  #tbl td:last-child{overflow:visible}
   #board .empty{font-size:13px;color:#aaa;letter-spacing:0}
 
   /* 베팅 버튼: 4열 × 2행 */
@@ -86,10 +95,10 @@
     #secTable h3,#secBoard h3,#secAna h3,#secLog h3,#secAct h3{display:none}
     #info{font-size:11px;margin-bottom:4px}
     td,th{padding:1px 4px;font-size:12px;line-height:1.3}
-    #tbl .cd{font-size:1.35em}
+    #tbl .cd{font-size:2.0em}
     #secTable{padding:4px 6px}
     #board{font-size:20px;text-align:center}
-    #board .cd{font-size:1.9em}
+    #board .cd{font-size:min(2.85em, 15vw)}
     .tabs{display:flex;gap:0;margin-bottom:6px}
     .tabs button{flex:1;margin:0;padding:9px;border:1px solid #999;background:#f4f4f4}
     .tabs button.on{background:#dcdcdc;color:#111;font-weight:bold;border-color:#888}
@@ -843,7 +852,7 @@ function render(){
   // 열 너비를 고정해서 진행 중에 표가 흔들리지 않게 함 (상태 열이 남는 폭을 사용)
   const cols = [['', '3.2ch'], ['이름', '12.5ch']].concat(mob ? [] : [['성향', '15ch']],
     [['칩', '6ch'], ['베팅', '6ch']], mob ? [] : [['총 투입', '7ch']],
-    [['상태', ''], ['카드', VIEW === 'card' ? '5.6em' : '8ch']]);
+    [['상태', ''], ['카드', VIEW === 'card' ? (mob ? '4.6em' : '7.4em') : '8ch']]);
   let h = '<colgroup>' + cols.map(c => `<col${c[1] ? ` style="width:${c[1]}"` : ''}>`).join('') + '</colgroup><tr>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
   const shortAct = t => (t || '').replace('레이즈 → ', '레이즈 ').replace(' (올인)', '↑');
   P().forEach((p, i) => {
@@ -855,11 +864,11 @@ function render(){
     h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? 'D' : ''}</td><td>${p.name}${pos ? `<small>(${pos})</small>` : ''}</td>`
       + (mob ? '' : `<td>${p.isHuman ? '-' : STYLES[p.style].name}</td>`)
       + `<td>${p.chips}</td><td>${betCell(p, i)}</td>` + (mob ? '' : `<td>${p.totalBet || ''}</td>`)
-      + `<td${sd ? ' class="sd"' : ''}>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
+      + `<td${sd ? ' class="sd"' : ''}>${status}</td><td>${p.out || !p.hole.length ? '' : `<span class="cards">${fmt(VIEW === 'card' ? (show ? cardsStr(p.hole) : HIDDEN).replace(' ', '') : (show ? cardsStr(p.hole) : HIDDEN))}</span>`}</td></tr>`;
   });
   $('tbl').innerHTML = h;
   $('info').textContent = `핸드 #${G.handNo} · ${STREET_KO[G.street]} · 팟 ${potTotal()} · 현재 베팅 ${G.currentBet} · 최소 레이즈 폭 ${G.minRaise} · 블라인드 ${SET.sb}/${SET.bb}` + (SET.inc ? ` (상승까지 약 ${Math.max(1, (SET.cycle - SET.orbits) * P().filter(p => !p.out).length - SET.moves)}핸드)` : '');
-  $('board').innerHTML = G.board.length ? fmt(cardsStr(G.board)) : '<span class="empty">(아직 공개된 카드 없음)</span>';
+  $('board').innerHTML = G.board.length ? fmt(VIEW === 'card' ? G.board.map(cs).join('') : cardsStr(G.board)) : '<span class="empty">(아직 공개된 카드 없음)</span>';
   const myTurn = G.actor === 0 && G.street !== 'done';
   ['bFold','bCall','bRaise','qMin','qHalf','qPot','qAll','amt'].forEach(id => $(id).disabled = !myTurn);
   if (myTurn){
