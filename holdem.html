@@ -36,6 +36,7 @@
   .tblwrap{overflow-x:auto}
   table{border-collapse:collapse;width:100%;table-layout:fixed}
   td,th{overflow:hidden;text-overflow:ellipsis}
+  td.sd{white-space:normal}
   td small{font-size:.85em;color:inherit;opacity:.8}
   td,th{border:1px solid #bbb;padding:2px 6px;text-align:left;white-space:nowrap}
   tr.act td{font-weight:bold;background:#eee}
@@ -409,7 +410,7 @@ function startHand(){
   P().forEach(p => { if (p.chips <= 0) p.out = true; });
   if (P()[0].out){ log('당신의 칩이 모두 소진되었습니다. [새 게임 시작]으로 다시 도전하세요.', 'win'); endGame('패배 — 칩 소진'); G.street = 'done'; render(); showNext(false); return; }
   if (P().filter(p => !p.out).length === 1){ log('🏆 모든 상대를 탈락시켰습니다!', 'win'); endGame('우승'); G.street = 'done'; render(); showNext(false); return; }
-  G.handNo++; if ($('logMode').value === 'hand') refreshLog(); G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
+  G.handNo++; G.showdown = false; if ($('logMode').value === 'hand') refreshLog(); G.token++; G.winners = new Set(); G.revealed = false; G.cache = {}; G.pfAggr = -1;
   G.dealer = nextSeat(G.dealer, p => !p.out);
   if (G.handNo > 1 && SET.inc > 0){
     const aliveN = P().filter(p => !p.out).length;
@@ -793,7 +794,7 @@ function showdown(){
   log(`── 쇼다운 ── 보드: ${cardsStr(G.board)}`, 'street');
   const cont = live();
   cont.forEach(p => { const b = best5(p.hole.concat(G.board)); p.score = b.score; p.best = b.cards; log(`${B(p.name)}: ${cardsStr(p.hole)} → ${describe(p.score)}  [베스트 5장: ${cardsStr(p.best)}]`, 'act'); });
-  G.revealed = true;
+  G.revealed = true; G.showdown = true;
   const pots = buildPots();
   pots.forEach((pt, i) => {
     const top = Math.max(...pt.elig.map(p => p.score));
@@ -841,12 +842,13 @@ function render(){
   P().forEach((p, i) => {
     const show = p.isHuman || SET.learn || (G.revealed && !p.folded) || (showAll);
     const won = G.street === 'done' && G.winners && G.winners.has(i);
-    const status = won ? '<b>WIN</b>' : p.out ? '탈락' : p.folded ? '폴드' : p.allIn ? '올인' : esc(shortAct(p.lastAction));
+    const sd = G.street === 'done' && G.showdown && !p.folded && !p.out && p.score != null;
+    const status = sd ? `<b>${won ? 'WIN' : 'LOSE'}</b> ${catOf(p.score) === 8 && ((p.score >> 16) & 15) === 14 ? '로열 플러시' : CAT[catOf(p.score)]}` : won ? '<b>WIN</b>' : p.out ? '탈락' : p.folded ? '폴드' : p.allIn ? '올인' : esc(shortAct(p.lastAction));
     const pos = p.out ? '' : (p.posLabel && p.pos === 'SB' && i === G.dealer ? 'BTN/SB' : p.pos);
     h += `<tr class="${i === G.actor ? 'act' : ''} ${p.folded || p.out ? 'dim' : ''}"><td>${i === G.actor ? '▶' : ''}${i === G.dealer && !p.out ? 'D' : ''}</td><td>${p.name}${pos ? `<small>(${pos})</small>` : ''}</td>`
       + (mob ? '' : `<td>${p.isHuman ? '-' : STYLES[p.style].name}</td>`)
       + `<td>${p.chips}</td><td>${p.bet || ''}</td>` + (mob ? '' : `<td>${p.totalBet || ''}</td>`)
-      + `<td>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
+      + `<td${sd ? ' class="sd"' : ''}>${status}</td><td>${p.out || !p.hole.length ? '' : fmt(show ? cardsStr(p.hole) : HIDDEN)}</td></tr>`;
   });
   $('tbl').innerHTML = h;
   $('info').textContent = `핸드 #${G.handNo} · ${STREET_KO[G.street]} · 팟 ${potTotal()} · 현재 베팅 ${G.currentBet} · 최소 레이즈 폭 ${G.minRaise} · 블라인드 ${SET.sb}/${SET.bb}` + (SET.inc ? ` (상승까지 약 ${Math.max(1, (SET.cycle - SET.orbits) * P().filter(p => !p.out).length - SET.moves)}핸드)` : '');
