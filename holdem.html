@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>텍스트 텍사스 홀덤 · 해설 학습판</title>
+<title>텍스트 해설 학습판</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:Consolas,"D2Coding","Malgun Gothic",monospace;font-size:14px;margin:12px;color:#111;background:#fff}
@@ -62,9 +62,11 @@
   .cd{font-family:"HoldemCards","Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols","Segoe UI Emoji",sans-serif;font-size:1.7em;line-height:1;vertical-align:-0.12em}
   .cd{font-weight:normal !important}
   /* 카드 모드 크기: 분석·로그 1.5배, 플레이어 2배, 보드 1.5배 (기존 대비) */
-  #ana .cd,#log .cd,#rankText .cd{font-size:2.55em;vertical-align:-0.2em}
-  #board .cd{font-size:3.6em;line-height:1.05}
-  #tbl .cd{font-size:3.4em;line-height:1;vertical-align:middle}
+  :root{--card:47.6px}   /* 카드 크기 한 곳에서 관리 — 플레이어 표·보드·분석·해설·족보 공통 */
+  #ana .cd,#log .cd,#rankText .cd{font-size:var(--card);line-height:1.15;vertical-align:middle}
+  #ana .cd + .cd,#log .cd + .cd,#rankText .cd + .cd{margin-left:-.11em}
+  #board .cd{font-size:var(--card);line-height:1.05}
+  #tbl .cd{font-size:var(--card);line-height:1;vertical-align:middle}
   #tbl .cards{white-space:nowrap;display:inline-block;vertical-align:middle;padding:1px 0}
   #tbl .cards .cd{line-height:1.3;vertical-align:top;display:inline-block}
   #tbl .cards .cd + .cd{margin-left:-.11em}
@@ -97,10 +99,9 @@
     #secTable h3,#secBoard h3,#secAna h3,#secLog h3,#secAct h3{display:none}
     #info{font-size:11px;margin-bottom:4px}
     td,th{padding:1px 4px;font-size:12px;line-height:1.3}
-    #tbl .cd{font-size:2.0em}
+    :root{--card:24px}
     #secTable{padding:4px 6px}
     #board{font-size:20px;text-align:center}
-    #board .cd{font-size:min(2.85em, 15vw)}
     .tabs{display:flex;gap:0;margin-bottom:6px}
     .tabs button{flex:1;margin:0;padding:9px;border:1px solid #999;background:#f4f4f4}
     .tabs button.on{background:#dcdcdc;color:#111;font-weight:bold;border-color:#888}
@@ -188,7 +189,7 @@ function fmtCard(c){
   return SUITS[s] + rn(r);
 }
 const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const fmt = t => esc(t).replace(/\u0001(b|\d+)\u0002/g, (_, c) => fmtCard(c)).replace(/\u0003([\s\S]*?)\u0004/g, '<b>$1</b>');
+const fmt = t => esc(VIEW === 'card' ? t.replace(/\u0002 (?=\u0001)/g, '\u0002') : t).replace(/\u0001(b|\d+)\u0002/g, (_, c) => fmtCard(c)).replace(/\u0003([\s\S]*?)\u0004/g, '<b>$1</b>');
 const cardsStr = a => a.map(cs).join(' ');
 const CAT = ['하이카드','원페어','투페어','트리플','스트레이트','플러시','풀하우스','포카드','스트레이트 플러시'];
 const FULL = []; for (let r = 2; r <= 14; r++) for (let s = 0; s < 4; s++) FULL.push(r * 4 + s);
@@ -853,7 +854,7 @@ function render(){
   const mob = isMobile();
   // 열 너비를 고정해서 진행 중에 표가 흔들리지 않게 함 (상태 열이 남는 폭을 사용)
   const cols = [['', '3.2ch'], ['이름', '12.5ch']].concat(mob ? [] : [['성향', '15ch']],
-    [['칩', '6ch'], ['베팅', '6ch']], mob ? [] : [['총 투입', '7ch']],
+    [['칩', '6ch'], ['베팅', '6ch']], mob ? [] : [['투입', '7ch']],
     [['상태', ''], ['카드', VIEW === 'card' ? (mob ? '4.6em' : '7.4em') : '8ch']]);
   let h = '<colgroup>' + cols.map(c => `<col${c[1] ? ` style="width:${c[1]}"` : ''}>`).join('') + '</colgroup><tr>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr>';
   const shortAct = t => (t || '').replace('레이즈 → ', '레이즈 ').replace(' (올인)', '↑');
