@@ -166,7 +166,7 @@ const RN = {11:'J',12:'Q',13:'K',14:'A'};
 const rn = r => RN[r] || String(r);
 const cs = c => '\u0001' + c + '\u0002';           // 표시 모드에 맞게 나중에 변환되는 카드 마커
 const HIDDEN = '\u0001b\u0002 \u0001b\u0002';
-const SYM = ['♠','◆','♣','♥'];
+const SYM = ['♠','♦','♣','♥'];
 const UNI_BASE = [0x1F0A0, 0x1F0C0, 0x1F0D0, 0x1F0B0]; // S, D, C, H
 let VIEW = 'symbol';
 function fmtCard(c){
